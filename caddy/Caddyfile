@@ -1,0 +1,16 @@
+{
+    debug
+}
+
+localhost {
+    wasm {
+        item {
+            filepath ../wasm/plugin.wasm
+            configuration {
+                body_response "Bonjour! 🥖"
+            }
+        }
+    }
+
+    respond "world"
+}

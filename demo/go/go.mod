@@ -1,4 +1,4 @@
-module github.com/darkweak/wazemmes/wasm
+module github.com/darkweak/wazemmes/demo/go
 
 go 1.23.1
 

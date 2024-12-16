@@ -5,7 +5,14 @@
 localhost {
     wasm {
         item {
-            filepath ../wasm/plugin.wasm
+            filepath ../demo/go/plugin.wasm
+            configuration {
+                body_response "Bonjour! 🥖"
+            }
+        }
+        item {
+            filepath ../demo/js/build/debug.wasm
+            builder javascript
             configuration {
                 body_response "Bonjour! 🥖"
             }

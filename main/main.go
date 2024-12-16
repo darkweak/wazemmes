@@ -34,6 +34,7 @@ func main() {
 
 	h, err := wazemmes.NewWasmHandler(
 		"./wasm/plugin.wasm",
+		"",
 		moduleConfig{
 			BodyResponse: "module",
 		},

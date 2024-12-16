@@ -14,8 +14,9 @@ import (
 )
 
 type wasmModule struct {
-	Filepath      string      `json:"filepath"`
+	Builder       string      `json:"builder"`
 	Configuration interface{} `json:"configuration"`
+	Filepath      string      `json:"filepath"`
 }
 
 type CaddyWasm struct {
@@ -64,6 +65,8 @@ func parseCaddyfileHandlerDirective(h httpcaddyfile.Helper) (caddyhttp.Middlewar
 				for nesting := h.Nesting(); h.NextBlock(nesting); {
 					directive := h.Val()
 					switch directive {
+					case "builder":
+						module.Builder = h.RemainingArgs()[0]
 					case "filepath":
 						module.Filepath = h.RemainingArgs()[0]
 					case "configuration":
@@ -122,7 +125,7 @@ func (c *CaddyWasm) Provision(ctx caddy.Context) error {
 	c.logger = ctx.Logger(c)
 	wasmHandlers := make([]*wazemmes.WasmHandler, 0)
 	for _, item := range c.Items {
-		h, err := wazemmes.NewWasmHandler(item.Filepath, item.Configuration, c.Pool, c.logger)
+		h, err := wazemmes.NewWasmHandler(item.Filepath, item.Builder, item.Configuration, c.Pool, c.logger)
 		if err != nil {
 			return err
 		}

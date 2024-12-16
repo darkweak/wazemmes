@@ -1,2 +1,2 @@
 caddy/caddy
-wasm/plugin.wasm
+**/plugin.wasm

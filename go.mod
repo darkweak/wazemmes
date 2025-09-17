@@ -11,7 +11,6 @@ require (
 	github.com/stealthrocket/wasi-go v0.8.0
 	github.com/stealthrocket/wazergo v0.19.1
 	github.com/tetratelabs/wazero v1.8.1
-	github.com/wasmerio/wasmer-go v1.0.4
 	go.uber.org/zap v1.27.0
 )
 

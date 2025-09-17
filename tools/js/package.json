@@ -1,0 +1,35 @@
+{
+  "name": "wazemmes",
+  "version": "0.0.1",
+  "description": "Utility package to deal with the wazemmes golang module to reduce the pain to load the WASI plugin that is compiled using Javy",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darkweak/wazemmes.git"
+  },
+  "keywords": [
+    "WASI",
+    "WASM",
+    "Javy",
+    "Wazemmes",
+    "helper",
+    "utility"
+  ],
+  "author": "darkweak",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/darkweak/wazemmes/issues"
+  },
+  "homepage": "https://github.com/darkweak/wazemmes#readme",
+  "devDependencies": {
+    "@types/node": "^24.5.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

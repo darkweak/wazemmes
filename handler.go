@@ -30,6 +30,8 @@ func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfigurat
 	switch builder {
 	case "js", "javascript", "asc", "assemblyscript":
 		return NewWasmHandlerJS(modulepath, moduleConfig, poolConfiguration, logger)
+	case "php":
+		return NewWasmHandlerPHP(modulepath, moduleConfig, poolConfiguration, logger)
 	}
 
 	return NewWasmHandlerGo(modulepath, moduleConfig, poolConfiguration, logger)
@@ -50,5 +52,6 @@ func (w *WasmHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request, next h
 	}
 
 	handler(rq.Context(), next).ServeHTTP(rw, rq)
+
 	return nil
 }

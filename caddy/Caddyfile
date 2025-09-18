@@ -11,8 +11,15 @@ localhost {
             }
         }
         item {
-            filepath ../demo/js/build/debug.wasm
-            builder javascript
+            filepath demo/php/index.php
+            builder php
+            configuration {
+                body_response "Bonjour! 🥖"
+            }
+        }
+        item {
+            filepath ../demo/js/index.wasm
+            builder js
             configuration {
                 body_response "Bonjour! 🥖"
             }

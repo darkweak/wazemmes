@@ -1,17 +1,18 @@
-.PHONY: build build-js caddy debug
+.PHONY: build-all build-go build-js caddy debug run-caddy
 
-build:
-	cd wasm && go mod tidy 
-	cd wasm && tinygo build -o plugin.wasm -scheduler=asyncify --no-debug -target=wasi ./... 
+build-all: build-go build-js
+
+build-go:
+	cd wasm && go mod tidy && tinygo build -o plugin.wasm -scheduler=asyncify --no-debug -target=wasi ./...
 
 build-js:
-	cd demo/js && pnpm asbuild:debug
+	cd demo/js && javy build handler.js -o handler.wasm
 	$(MAKE) caddy run-caddy
 
 caddy:
 	cd caddy && xcaddy build --with github.com/darkweak/wazemmes/caddy=./ --with github.com/darkweak/wazemmes=../
 
-debug: build
+debug: build-go
 	go run main/main.go
 
 run-caddy:

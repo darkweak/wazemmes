@@ -1,2 +1,4 @@
 caddy/caddy
 **/plugin.wasm
+node_modules/
+demo/**/*.wasm

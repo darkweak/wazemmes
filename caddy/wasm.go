@@ -28,8 +28,6 @@ type CaddyWasm struct {
 
 const moduleName = "wasm"
 
-var up = caddy.NewUsagePool()
-
 func parseCaddyfileRecursively(h *caddyfile.Dispenser) interface{} {
 	input := make(map[string]interface{})
 	for nesting := h.Nesting(); h.NextBlock(nesting); {

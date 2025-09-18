@@ -1,10 +1,10 @@
 module github.com/darkweak/wazemmes/caddy
 
-go 1.23.1
+go 1.25
 
 require (
 	github.com/caddyserver/caddy/v2 v2.8.4
-	github.com/darkweak/wazemmes v0.0.0-00010101000000-000000000000
+	github.com/darkweak/wazemmes v0.0.1
 	go.uber.org/zap v1.27.0
 )
 
@@ -94,7 +94,6 @@ require (
 	github.com/tailscale/tscert v0.0.0-20240517230440-bbccfbf48933 // indirect
 	github.com/tetratelabs/wazero v1.8.1 // indirect
 	github.com/urfave/cli v1.22.14 // indirect
-	github.com/wasmerio/wasmer-go v1.0.4 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.etcd.io/bbolt v1.3.9 // indirect
 	go.step.sm/cli-utils v0.9.0 // indirect
@@ -123,4 +122,4 @@ require (
 	howett.net/plist v1.0.0 // indirect
 )
 
-replace github.com/darkweak/wazemmes => /Users/sylvain/go/src/github.com/darkweak/wazemmes
+replace github.com/darkweak/wazemmes => ../

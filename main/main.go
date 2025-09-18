@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/darkweak/wazemmes"
@@ -14,7 +13,7 @@ type moduleConfig struct {
 type lastHandler struct{}
 
 func (lastHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request) {
-	rw.Write([]byte("Hello world"))
+	_, _ = rw.Write([]byte("Hello world"))
 }
 
 type customHandler struct {
@@ -22,11 +21,7 @@ type customHandler struct {
 }
 
 func (c customHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request) {
-	if e := c.handler(rw, rq, lastHandler{}); e != nil {
-		fmt.Printf("ERROR => %#v\n\n", e)
-	}
-
-	fmt.Printf("SUCCESS => %#v\n\n", "yeah")
+	_ = c.handler(rw, rq, lastHandler{})
 }
 
 func main() {
@@ -49,5 +44,5 @@ func main() {
 		handler: h.ServeHTTP,
 	}
 
-	http.ListenAndServe(":80", custom)
+	_ = http.ListenAndServe(":80", custom)
 }

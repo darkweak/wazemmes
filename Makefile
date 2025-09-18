@@ -2,12 +2,14 @@
 
 build-all: build-go build-js
 
+build-tools:
+	cd tools/js && npm i && npm run build && npm login && npm publish
+
 build-go:
 	cd wasm && go mod tidy && tinygo build -o plugin.wasm -scheduler=asyncify --no-debug -target=wasi ./...
 
 build-js:
-	cd demo/js && javy build handler.js -o handler.wasm
-	$(MAKE) caddy run-caddy
+	cd demo/js && npm i && ./node_modules/.bin/esbuild handler.js --bundle --outfile=dist.js && javy build dist.js -o index.wasm
 
 caddy:
 	cd caddy && xcaddy build --with github.com/darkweak/wazemmes/caddy=./ --with github.com/darkweak/wazemmes=../

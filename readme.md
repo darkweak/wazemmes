@@ -3,6 +3,11 @@
 ## What is this project?
 We needed a WASM module for Caddy and made it proxy agnostic, so you can use it as an HTTP middleware in your projects.
 
+## Caddy
+```
+xcaddy build --with github.com/darkweak/wazemmes
+```
+
 ## How to build
 Make sure you have already installed:
 * go

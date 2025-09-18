@@ -95,6 +95,7 @@ func parseCaddyfileHandlerDirective(h httpcaddyfile.Helper) (caddyhttp.Middlewar
 						return nil, h.Errf("unsupported pool directive: %s", directive)
 					}
 				}
+				wasmConfig.Pool = pool
 			default:
 				return nil, h.Errf("unsupported root directive: %s", rootOption)
 			}

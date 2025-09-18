@@ -51,12 +51,12 @@ type Context = 'request' | 'response';
 type Request = {
     method: string;
     url: string;
-    headers: Record<string, string>;
+    headers: Record<string, string[]>;
     body: string;
 };
 type Response = {
     status: number;
-    headers: Record<string, string>;
+    headers: Record<string, string[]>;
     body: string;
 }
 

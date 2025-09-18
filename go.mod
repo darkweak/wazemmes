@@ -1,8 +1,6 @@
 module github.com/darkweak/wazemmes
 
-go 1.23.0
-
-toolchain go1.23.1
+go 1.25
 
 require (
 	github.com/http-wasm/http-wasm-host-go v0.7.0

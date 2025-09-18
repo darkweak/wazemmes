@@ -1,13 +1,14 @@
 import { handleWasm } from 'wazemmes';
 
 function handleRequest(input) {
-    input.body = "Hello there!"
+    input.response.body = input.request.body;
+    input.response.headers["X-Plugin-Request"] = ["DONE"];
 
     return input;
 }
 
 function handleResponse(input) {
-    input.body = "Hello there!"
+    input.response.headers["X-Plugin-Response"] = ["DONE"];
 
     return input;
 }

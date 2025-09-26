@@ -8,7 +8,7 @@ require (
 	github.com/juliens/wasm-goexport v0.0.6
 	github.com/stealthrocket/wasi-go v0.8.0
 	github.com/stealthrocket/wazergo v0.19.1
-	github.com/tetratelabs/wazero v1.8.1
+	github.com/tetratelabs/wazero v1.9.0
 	go.uber.org/zap v1.27.0
 )
 

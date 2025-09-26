@@ -1,3 +1,5 @@
+.idea/
+
 caddy/caddy
 **/plugin.wasm
 node_modules/

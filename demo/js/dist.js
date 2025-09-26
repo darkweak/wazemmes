@@ -72,10 +72,12 @@
   function handleRequest(input) {
     input.response.body = input.request.body;
     input.response.headers["X-Plugin-Request"] = ["DONE"];
+    input.error = "should stop";
     return input;
   }
   function handleResponse(input) {
     input.response.headers["X-Plugin-Response"] = ["DONE"];
+    input.error = "should stop";
     return input;
   }
   handleWasm(handleRequest, handleResponse);

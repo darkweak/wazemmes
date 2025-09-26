@@ -1,0 +1,36 @@
+name: Static validation lint/tests
+
+on:
+  pull_request:
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  lint-validation:
+    name: Validate Go code linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          args: --timeout=240s
+  unit-test-golang:
+    needs: lint-validation
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run unit static tests
+        run: go test -v -race

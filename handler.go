@@ -72,3 +72,23 @@ func (w *WasmHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request, next H
 
 	return nil
 }
+
+func BuildMiddlewareChain(logger *zap.Logger, chain []*WasmHandler) Handler {
+	if len(chain) > 0 {
+		nextMw := chain[0]
+
+		return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
+			err := nextMw.ServeHTTP(rw, req, BuildMiddlewareChain(logger, chain[1:]))
+
+			if err != nil {
+				logger.Sugar().Errorf("error in WASM middleware: %#v", err)
+			}
+
+			return err
+		})
+	}
+
+	return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
+		return nil
+	})
+}

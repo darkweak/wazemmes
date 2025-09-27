@@ -26,6 +26,7 @@ type CaddyWasm struct {
 	Pool             map[string]interface{} `json:"pool"`
 	middlewaresChain []*wazemmes.WasmHandler
 	logger           *zap.Logger
+	cachedChain      wazemmes.Handler
 }
 
 const moduleName = "wasm"
@@ -162,38 +163,29 @@ func (c *CaddyWasm) Provision(ctx caddy.Context) error {
 	}
 
 	c.middlewaresChain = wasmHandlers
-	// alice.New(wazemmes.NewWasmHandler(nil, nil).ServeHTTP(nil, nil, nil))
+	c.cachedChain = wazemmes.BuildMiddlewareChain(c.logger, c.middlewaresChain)
 
 	return nil
-}
-
-func (c *CaddyWasm) buildMiddlewareChain(chain []*wazemmes.WasmHandler, next caddyhttp.Handler) wazemmes.Handler {
-	if len(chain) > 0 {
-		nextMw := chain[0]
-
-		return wazemmes.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
-			err := nextMw.ServeHTTP(rw, req, c.buildMiddlewareChain(chain[1:], next))
-
-			if err != nil {
-				c.logger.Sugar().Errorf("Error in WASM middleware: %#v", err)
-			}
-
-			return err
-		})
-	}
-
-	return wazemmes.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
-		return next.ServeHTTP(rw, req)
-	})
 }
 
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (c CaddyWasm) ServeHTTP(rw http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	writer := wazemmes.BuildWriter(rw, r)
 
-	err := c.buildMiddlewareChain(c.middlewaresChain, next).ServeHTTP(writer, r)
+	err := c.cachedChain.ServeHTTP(writer, r)
 	if err != nil {
 		c.logger.Sugar().Errorf("buildMiddlewareChain: %v", err)
+
+		writer.Flush()
+
+		return nil
+	}
+
+	err = next.ServeHTTP(writer, r)
+	if err != nil {
+		c.logger.Sugar().Errorf("next.ServeHTTP: %v", err)
+
+		return err
 	}
 
 	writer.Flush()

@@ -102,8 +102,10 @@ func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map
 	}
 
 	return NewWasmHandlerInstance(func(ctx context.Context, next Handler) Handler {
-		mw.NewHandler(ctx, wazemmesToHTTPHandler(next))
+		return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
+			mw.NewHandler(ctx, wazemmesToHTTPHandler(next)).ServeHTTP(rw, req)
 
-		return nil
+			return nil
+		})
 	}, poolConfiguration, logger)
 }

@@ -57,10 +57,18 @@ func (w *WasmHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request, next H
 		return errors.New("impossible to cast the borrowed object into a WASM HTTP handler")
 	}
 
-	err = handler(rq.Context(), next).ServeHTTP(rw, rq)
+	result := handler(rq.Context(), next)
+	if result != nil {
+		err = result.ServeHTTP(rw, rq)
+	}
+
 	if err != nil {
 		return err
 	}
-	
-	return next.ServeHTTP(rw, rq)
+
+	if next != nil {
+		return next.ServeHTTP(rw, rq)
+	}
+
+	return nil
 }

@@ -32,7 +32,6 @@ func (h *phpWASMHandler) getScriptPath(urlPath string) string {
 }
 
 func (h *phpWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) error {
-	fmt.Println("PHP ServeHTTP handler")
 	scriptPath := h.getScriptPath(r.URL.Path)
 
 	// Create a pipe to capture PHP output

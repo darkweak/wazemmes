@@ -65,19 +65,19 @@ func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map
 	wa0Rt := host.NewRuntime(wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(cache).WithCloseOnContextDone(true)))
 	code, err := os.ReadFile(modulepath)
 	if err != nil {
-		logger.Sugar().Infof("impossible to read the custom module: %w", err)
+		logger.Sugar().Infof("impossible to read the custom module: %v", err)
 		return nil, err
 	}
 
 	customModule, err := wa0Rt.CompileModule(ctx, code)
 	if err != nil {
-		logger.Sugar().Infof("impossible to compile the custom module: %w", err)
+		logger.Sugar().Infof("impossible to compile the custom module: %v", err)
 		return nil, err
 	}
 
 	applyCtx, err := hostInstanciation(ctx, wa0Rt, customModule)
 	if err != nil {
-		logger.Sugar().Infof("instantiating host module: %w", err)
+		logger.Sugar().Infof("instantiating host module: %v", err)
 		return nil, err
 	}
 
@@ -89,7 +89,7 @@ func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map
 
 	data, err := json.Marshal(moduleConfig)
 	if err != nil {
-		logger.Sugar().Infof("marshaling config: %w", err)
+		logger.Sugar().Infof("marshaling config: %v", err)
 		return nil, err
 	}
 
@@ -97,7 +97,7 @@ func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map
 
 	mw, err := wasm.NewMiddleware(applyCtx(ctx), code, opts...)
 	if err != nil {
-		logger.Sugar().Infof("creating middleware: %w", err)
+		logger.Sugar().Infof("creating middleware: %v", err)
 		return nil, err
 	}
 

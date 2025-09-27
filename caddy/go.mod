@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/caddyserver/caddy/v2 v2.10.2
-	github.com/darkweak/wazemmes v0.0.1
+	github.com/darkweak/wazemmes v0.0.2
 	go.uber.org/zap v1.27.0
 )
 

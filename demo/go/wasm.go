@@ -21,7 +21,7 @@ func main() {
 	}
 
 	mw, _ := New(config)
-	handler.Host.Log(api.LogLevelInfo, fmt.Sprintf("%#v\n", mw))
+	handler.Host.Log(api.LogLevelInfo, fmt.Sprintf("%#v", mw))
 	if err != nil {
 		handler.Host.Log(api.LogLevelError, fmt.Sprintf("Could not load config %v", err))
 		os.Exit(1)

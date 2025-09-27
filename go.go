@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/http-wasm/http-wasm-host-go/handler"
@@ -51,6 +52,12 @@ func hostInstanciation(ctx context.Context, runtime wazero.Runtime, mod wazero.C
 	}, nil
 }
 
+func wazemmesToHTTPHandler(handler Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_ = handler.ServeHTTP(rw, req)
+	})
+}
+
 func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
 	cache := wazero.NewCompilationCache()
 	ctx := context.Background()
@@ -94,5 +101,11 @@ func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map
 		return nil, err
 	}
 
-	return NewWasmHandlerInstance(mw.NewHandler, poolConfiguration, logger)
+	return NewWasmHandlerInstance(func(ctx context.Context, next Handler) Handler {
+		return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
+			mw.NewHandler(ctx, wazemmesToHTTPHandler(next)).ServeHTTP(rw, req)
+
+			return nil
+		})
+	}, poolConfiguration, logger)
 }

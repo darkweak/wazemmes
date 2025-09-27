@@ -30,12 +30,12 @@ func (l logger) IsEnabled(level api.LogLevel) bool {
 func (l logger) Log(_ context.Context, level api.LogLevel, message string) {
 	switch level {
 	case api.LogLevelDebug:
-		l.Logger.Debug(message)
+		l.Debug(message)
 	case api.LogLevelInfo:
-		l.Logger.Info(message)
+		l.Info(message)
 	case api.LogLevelWarn:
-		l.Logger.Warn(message)
+		l.Warn(message)
 	case api.LogLevelError:
-		l.Logger.Error(message)
+		l.Error(message)
 	}
 }

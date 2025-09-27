@@ -1,0 +1,7 @@
+version: "2"
+
+issues:
+  fix: true
+
+run:
+  timeout: 5m

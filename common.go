@@ -1,3 +1,4 @@
+//nolint:unused // temporary remove lint on this file to implement handleRequest, handleResponse properly.
 package wazemmes
 
 import (
@@ -18,7 +19,7 @@ func (c *customHandler) NewHandler(ctx context.Context, next http.Handler) http.
 }
 
 func (c *customHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.handleRequest()
+	_, _ = c.handleRequest()
 	c.next.ServeHTTP(w, r)
-	c.handleResponse()
+	_, _ = c.handleResponse()
 }

@@ -3,7 +3,9 @@ package caddy
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -24,6 +26,7 @@ type CaddyWasm struct {
 	Pool             map[string]interface{} `json:"pool"`
 	middlewaresChain []*wazemmes.WasmHandler
 	logger           *zap.Logger
+	cachedChain      wazemmes.Handler
 }
 
 const moduleName = "wasm"
@@ -46,6 +49,47 @@ func parseCaddyfileRecursively(h *caddyfile.Dispenser) interface{} {
 	}
 
 	return input
+}
+
+func convertSnakeToPascalCase(key string) string {
+	if len(key) > 0 && unicode.IsUpper(rune(key[0])) {
+		return key
+	}
+
+	if key == "lifo" {
+		return strings.ToUpper(key)
+	}
+
+	pascalKey := ""
+	for _, val := range strings.Split(key, "_") {
+		pascalKey += strings.ToUpper(val[0:1]) + strings.ToLower(val[1:])
+	}
+
+	return pascalKey
+}
+
+func parsePool(h httpcaddyfile.Helper) (map[string]interface{}, error) {
+	pool := map[string]interface{}{}
+	for nesting := h.Nesting(); h.NextBlock(nesting); {
+		directive := convertSnakeToPascalCase(h.Val())
+		switch directive {
+		case "LIFO", "TestOnCreate", "TestOnBorrow", "TestOnReturn", "TestWhileIdle", "BlockWhenExhausted":
+			pool[directive] = true
+			args := h.RemainingArgs()
+			if len(args) > 0 {
+				pool[directive], _ = strconv.ParseBool(args[0])
+			}
+		case "MaxTotal", "MaxIdle", "MinIdle", "NumTestsPerEvictionRun":
+			pool[directive] = true
+		case "MinEvictableIdleTime", "SoftMinEvictableIdleTime", "TimeBetweenEvictionRuns":
+			args := h.RemainingArgs()
+			pool[directive], _ = time.ParseDuration(args[0])
+		default:
+			return nil, h.Errf("unsupported pool directive: %s", directive)
+		}
+	}
+
+	return pool, nil
 }
 
 func parseCaddyfileHandlerDirective(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
@@ -76,26 +120,12 @@ func parseCaddyfileHandlerDirective(h httpcaddyfile.Helper) (caddyhttp.Middlewar
 
 				wasmConfig.Items = append(wasmConfig.Items, module)
 			case "pool":
-				pool := map[string]interface{}{}
-				for nesting := h.Nesting(); h.NextBlock(nesting); {
-					directive := h.Val()
-					switch directive {
-					case "LIFO", "TestOnCreate", "TestOnBorrow", "TestOnReturn", "TestWhileIdle", "BlockWhenExhausted":
-						pool[directive] = true
-						args := h.RemainingArgs()
-						if len(args) > 0 {
-							pool[directive], _ = strconv.ParseBool(args[0])
-						}
-					case "MaxTotal", "MaxIdle", "MinIdle", "NumTestsPerEvictionRun":
-						pool[directive] = true
-					case "MinEvictableIdleTime", "SoftMinEvictableIdleTime", "TimeBetweenEvictionRuns":
-						args := h.RemainingArgs()
-						pool[directive], _ = time.ParseDuration(args[0])
-					default:
-						return nil, h.Errf("unsupported pool directive: %s", directive)
-					}
+				var err error
+
+				wasmConfig.Pool, err = parsePool(h)
+				if err != nil {
+					return nil, err
 				}
-				wasmConfig.Pool = pool
 			default:
 				return nil, h.Errf("unsupported root directive: %s", rootOption)
 			}
@@ -133,32 +163,32 @@ func (c *CaddyWasm) Provision(ctx caddy.Context) error {
 	}
 
 	c.middlewaresChain = wasmHandlers
-	// alice.New(wazemmes.NewWasmHandler(nil, nil).ServeHTTP(nil, nil, nil))
+	c.cachedChain = wazemmes.BuildMiddlewareChain(c.logger, c.middlewaresChain)
 
 	return nil
 }
 
-func (c *CaddyWasm) buildMiddlewareChain(chain []*wazemmes.WasmHandler, next caddyhttp.Handler) http.Handler {
-	var nextMw *wazemmes.WasmHandler
-	if len(chain) > 0 {
-		nextMw = chain[0]
-
-		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			if err := nextMw.ServeHTTP(rw, req, c.buildMiddlewareChain(chain[1:], next)); err != nil {
-				c.logger.Sugar().Errorf("Error in WASM middleware: %#v", err)
-			}
-		})
-	}
-
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		err := next.ServeHTTP(rw, req)
-		c.logger.Sugar().Errorf("Error in caddy next middleware: %#v", err)
-	})
-}
-
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (c CaddyWasm) ServeHTTP(rw http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
-	c.buildMiddlewareChain(c.middlewaresChain, next).ServeHTTP(rw, r)
+	writer := wazemmes.BuildWriter(rw, r)
+
+	err := c.cachedChain.ServeHTTP(writer, r)
+	if err != nil {
+		c.logger.Sugar().Errorf("buildMiddlewareChain: %v", err)
+
+		writer.Flush()
+
+		return nil
+	}
+
+	err = next.ServeHTTP(writer, r)
+	if err != nil {
+		c.logger.Sugar().Errorf("next.ServeHTTP: %v", err)
+
+		return err
+	}
+
+	writer.Flush()
 
 	return nil
 }

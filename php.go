@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,13 +17,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type PHPWASMHandler struct {
+type phpWASMHandler struct {
 	runtime        wazero.Runtime
 	compiledModule wazero.CompiledModule
 	documentRoot   string
 }
 
-func (h *PHPWASMHandler) getScriptPath(urlPath string) string {
+func (h *phpWASMHandler) getScriptPath(urlPath string) string {
 	if urlPath == "/" || urlPath == "" {
 		return "index.php"
 	}
@@ -30,7 +31,7 @@ func (h *PHPWASMHandler) getScriptPath(urlPath string) string {
 	return h.documentRoot
 }
 
-func (h *PHPWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (h *phpWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) error {
 	scriptPath := h.getScriptPath(r.URL.Path)
 
 	// Create a pipe to capture PHP output
@@ -72,18 +73,16 @@ func (h *PHPWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	// If there's a request body, we need to handle it
 	if r.Body != nil {
-		body, err := io.ReadAll(r.Body)
+		stdin := bytes.NewBuffer([]byte{})
+
+		_, err := io.Copy(stdin, r.Body)
 		if err != nil {
-			return
+			return err
 		}
 
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		r.Body = io.NopCloser(bytes.NewReader(stdin.Bytes()))
 
-		if len(body) > 0 {
-			return
-		}
+		config.WithStdin(stdin)
 	}
 
 	module, _ := h.runtime.InstantiateModule(r.Context(), h.compiledModule, config)
@@ -92,14 +91,16 @@ func (h *PHPWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		_ = module.Close(r.Context())
 	}()
 
-	var response BaseHandler
+	var response baseHandler
 	_ = json.NewDecoder(bytes.NewReader([]byte(strings.Split(outputBuffer.String(), "\r\n\r\n")[1]))).Decode(&response)
 
 	if response.Error != "" {
 		rw.WriteHeader(http.StatusInternalServerError)
 		_, _ = rw.Write([]byte(response.Error))
 
-		return
+		rw.(http.Flusher).Flush()
+
+		return errors.New(response.Error)
 	}
 
 	for key, values := range response.Response.Headers {
@@ -109,6 +110,8 @@ func (h *PHPWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = rw.Write([]byte(response.Response.Body))
+
+	return nil
 }
 
 //go:embed php-cgi.wasm
@@ -129,14 +132,14 @@ func NewWasmHandlerPHP(modulepath string, _ any, poolConfiguration map[string]in
 		return nil, fmt.Errorf("failed to compile WASM module: %w", err)
 	}
 
-	wasmHandlerPHP := &PHPWASMHandler{
+	wasmHandlerPHP := &phpWASMHandler{
 		runtime:        runtime,
 		compiledModule: compiled,
 		documentRoot:   modulepath,
 	}
 
 	return NewWasmHandlerInstance(
-		func(ctx context.Context, next http.Handler) http.Handler {
+		func(ctx context.Context, next Handler) Handler {
 			return wasmHandlerPHP
 		},
 		poolConfiguration,

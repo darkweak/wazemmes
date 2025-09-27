@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,30 +16,30 @@ import (
 	"go.uber.org/zap"
 )
 
-type Request struct {
+type request struct {
 	Headers http.Header `json:"headers"`
 	URL     *url.URL    `json:"url"`
 	Body    string      `json:"body"`
 	Method  string      `json:"method"`
 }
 
-type Response struct {
+type response struct {
 	Headers http.Header `json:"headers"`
 	Body    string      `json:"body"`
 	Status  int         `json:"status"`
 }
 
-type BaseHandler struct {
-	Request  Request  `json:"request"`
-	Response Response `json:"response"`
+type baseHandler struct {
+	Request  request  `json:"request"`
+	Response response `json:"response"`
 	Error    string   `json:"error"`
 }
 
 type Input struct {
-	BaseHandler BaseHandler `json:"-"`
+	BaseHandler baseHandler `json:"-"`
 	Context     string      `json:"context"`
 }
-type Output = BaseHandler
+type Output = baseHandler
 
 func NewWasmHandlerJS(modulepath string, _ any, poolConfiguration map[string]interface{},
 	logger *zap.Logger) (*WasmHandler, error) {
@@ -65,7 +66,7 @@ func NewWasmHandlerJS(modulepath string, _ any, poolConfiguration map[string]int
 		compiledModule: compiled,
 	}
 	return NewWasmHandlerInstance(
-		func(ctx context.Context, next http.Handler) http.Handler {
+		func(ctx context.Context, next Handler) Handler {
 			return wasmHandlerJS
 		},
 		poolConfiguration,
@@ -78,30 +79,30 @@ type JSWASMHandler struct {
 	compiledModule wazero.CompiledModule
 }
 
-func (h *JSWASMHandler) ServeHTTP(rw http.ResponseWriter, request *http.Request) {
-	ctx := request.Context()
+func (h *JSWASMHandler) ServeHTTP(rw http.ResponseWriter, httpReq *http.Request) error {
+	ctx := httpReq.Context()
 
 	var buf bytes.Buffer
-	if request.Body != nil {
-		_, _ = io.Copy(&buf, request.Body)
-		_ = request.Body.Close()
-		request.Body = io.NopCloser(bytes.NewBuffer(buf.Bytes()))
+	if httpReq.Body != nil {
+		_, _ = io.Copy(&buf, httpReq.Body)
+		_ = httpReq.Body.Close()
+		httpReq.Body = io.NopCloser(bytes.NewBuffer(buf.Bytes()))
 	}
 
-	req := Request{
-		Headers: request.Header,
-		URL:     request.URL,
+	req := request{
+		Headers: httpReq.Header,
+		URL:     httpReq.URL,
 		Body:    buf.String(),
-		Method:  request.Method,
+		Method:  httpReq.Method,
 	}
-	res := Response{
-		Headers: request.Header,
+	res := response{
+		Headers: httpReq.Header,
 		Body:    buf.String(),
 		Status:  0,
 	}
 
 	reqBytes, _ := json.Marshal(Input{
-		BaseHandler: BaseHandler{
+		BaseHandler: baseHandler{
 			Request:  req,
 			Response: res,
 			Error:    "",
@@ -124,14 +125,14 @@ func (h *JSWASMHandler) ServeHTTP(rw http.ResponseWriter, request *http.Request)
 		_ = module.Close(ctx)
 	}()
 
-	var response BaseHandler
+	var response baseHandler
 	_ = json.NewDecoder(bytes.NewReader(stdout.Bytes())).Decode(&response)
 
 	if response.Error != "" {
 		rw.WriteHeader(http.StatusInternalServerError)
 		_, _ = rw.Write([]byte(response.Error))
 
-		return
+		return errors.New(response.Error)
 	}
 
 	for key, values := range response.Response.Headers {
@@ -141,4 +142,6 @@ func (h *JSWASMHandler) ServeHTTP(rw http.ResponseWriter, request *http.Request)
 	}
 
 	_, _ = rw.Write([]byte(response.Response.Body))
+
+	return nil
 }

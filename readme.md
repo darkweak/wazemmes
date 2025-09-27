@@ -66,6 +66,28 @@ wasm {
 
 Under the hood, this middleware uses a pool to be memory efficient and you are able to configure it through the Caddyfile using the `pool` directive. Refers to the [configuration from github.com/jolestar/go-commons-pool](https://github.com/jolestar/go-commons-pool?tab=readme-ov-file#pool-configuration-option) to learn more about the keys.
 ```
+# Caddyfile conventional snake_case pool configuration
+wasm {
+    pool {
+        lifo false
+        test_on_create false
+        test_on_borrow false
+        test_on_return false
+        test_while_idle false
+        block_when_exhausted false
+        max_total 1000
+        max_idle 1000
+        min_idle 1000
+        num_tests_per_eviction_run 1000
+        min_evictable_idle_time 10s
+        soft_min_evictable_idle_time 10s
+        time_between_eviction_runs 10s
+    }
+}
+```
+
+```
+# Pool configuration following the go structure names
 wasm {
     pool {
         LIFO false

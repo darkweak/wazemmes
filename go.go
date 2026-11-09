@@ -59,10 +59,9 @@ func wazemmesToHTTPHandler(handler Handler) http.Handler {
 }
 
 func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
-	cache := wazero.NewCompilationCache()
 	ctx := context.Background()
 
-	wa0Rt := host.NewRuntime(wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(cache).WithCloseOnContextDone(true)))
+	wa0Rt := host.NewRuntime(wazero.NewRuntimeWithConfig(ctx, newRuntimeConfig().WithCloseOnContextDone(true)))
 	code, err := os.ReadFile(modulepath)
 	if err != nil {
 		logger.Sugar().Infof("impossible to read the custom module: %v", err)

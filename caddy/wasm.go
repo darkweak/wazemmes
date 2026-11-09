@@ -80,7 +80,17 @@ func parsePool(h httpcaddyfile.Helper) (map[string]interface{}, error) {
 				pool[directive], _ = strconv.ParseBool(args[0])
 			}
 		case "MaxTotal", "MaxIdle", "MinIdle", "NumTestsPerEvictionRun":
-			pool[directive] = true
+			args := h.RemainingArgs()
+			if len(args) == 0 {
+				return nil, h.Errf("%s expects an integer value", directive)
+			}
+
+			value, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, h.Errf("invalid %s value %q: %v", directive, args[0], err)
+			}
+
+			pool[directive] = value
 		case "MinEvictableIdleTime", "SoftMinEvictableIdleTime", "TimeBetweenEvictionRuns":
 			args := h.RemainingArgs()
 			pool[directive], _ = time.ParseDuration(args[0])
@@ -180,6 +190,8 @@ func (c CaddyWasm) ServeHTTP(rw http.ResponseWriter, r *http.Request, next caddy
 
 		return nil
 	}
+
+	writer.StartSegment()
 
 	err = next.ServeHTTP(writer, r)
 	if err != nil {

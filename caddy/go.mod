@@ -1,6 +1,6 @@
 module github.com/darkweak/wazemmes/caddy
 
-go 1.25
+go 1.27
 
 require (
 	github.com/caddyserver/caddy/v2 v2.10.2

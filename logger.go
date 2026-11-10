@@ -7,10 +7,10 @@ import (
 )
 
 type Logger interface {
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warn(args ...interface{})
-	Error(args ...interface{})
+	Debug(args ...any)
+	Info(args ...any)
+	Warn(args ...any)
+	Error(args ...any)
 }
 
 type logger struct {

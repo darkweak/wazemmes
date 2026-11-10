@@ -64,7 +64,7 @@ wasm {
 }
 ```
 
-Under the hood, this middleware uses a pool to be memory efficient and you are able to configure it through the Caddyfile using the `pool` directive. Refers to the [configuration from github.com/jolestar/go-commons-pool](https://github.com/jolestar/go-commons-pool?tab=readme-ov-file#pool-configuration-option) to learn more about the keys.
+Every request runs in its own WASM module instance, so handlers are stateless and serve requests concurrently without limit by default. You can cap the number of concurrent requests per item with the `pool` directive: `max_total` sets the limit, and `block_when_exhausted` (default `true`) chooses whether extra requests wait for a free slot or fail immediately. The other keys from [github.com/jolestar/go-commons-pool](https://github.com/jolestar/go-commons-pool?tab=readme-ov-file#pool-configuration-option) are accepted for compatibility but have no effect.
 ```
 # Caddyfile conventional snake_case pool configuration
 wasm {

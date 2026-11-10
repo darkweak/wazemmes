@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
-	pool "github.com/jolestar/go-commons-pool/v2"
 	"go.uber.org/zap"
 )
 
@@ -21,18 +21,20 @@ type Handler interface {
 type WasmMiddleware func(http.ResponseWriter, *http.Request, http.Handler) error
 type WasmHandler struct {
 	Configuration configuration
-	pool          *pool.ObjectPool
+	handler       func(ctx context.Context, next Handler) Handler
+	limiter       *limiter
 	logger        *zap.Logger
 }
 
-func NewWasmHandlerInstance(handler func(ctx context.Context, next Handler) Handler, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
+func NewWasmHandlerInstance(handler func(ctx context.Context, next Handler) Handler, poolConfiguration map[string]any, logger *zap.Logger) (*WasmHandler, error) {
 	return &WasmHandler{
-		pool:   newPoolConfiguration(handler, poolConfiguration),
-		logger: logger,
+		handler: handler,
+		limiter: newLimiter(poolConfiguration),
+		logger:  logger,
 	}, nil
 }
 
-func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
+func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfiguration map[string]any, logger *zap.Logger) (*WasmHandler, error) {
 	switch builder {
 	case "js", "javascript", "asc", "assemblyscript":
 		return NewWasmHandlerJS(modulepath, moduleConfig, poolConfiguration, logger)
@@ -43,43 +45,64 @@ func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfigurat
 	return NewWasmHandlerGo(modulepath, moduleConfig, poolConfiguration, logger)
 }
 
+// trackedNext records whether the module already delegated to the next
+// handler, so the rest of the chain is never executed twice.
+type trackedNext struct {
+	next   Handler
+	called bool
+}
+
+func (t *trackedNext) ServeHTTP(rw http.ResponseWriter, rq *http.Request) error {
+	t.called = true
+
+	if t.next == nil {
+		return nil
+	}
+
+	return t.next.ServeHTTP(rw, rq)
+}
+
 func (w *WasmHandler) ServeHTTP(rw http.ResponseWriter, rq *http.Request, next Handler) error {
-	value, err := w.pool.BorrowObject(rq.Context())
-	defer func() {
-		_ = w.pool.ReturnObject(rq.Context(), value)
-	}()
-	if err != nil {
+	if err := w.limiter.acquire(rq.Context()); err != nil {
 		return err
 	}
+	defer w.limiter.release()
 
-	handler, ok := value.(func(ctx context.Context, next Handler) Handler)
-	if !ok {
-		return errors.New("impossible to cast the borrowed object into a WASM HTTP handler")
+	if w.handler == nil {
+		return errors.New("no WASM HTTP handler configured")
 	}
 
-	result := handler(rq.Context(), next)
-	if result != nil {
-		err = result.ServeHTTP(rw, rq)
+	tracked := &trackedNext{next: next}
+
+	startSegment(rw)
+
+	if result := w.handler(rq.Context(), tracked); result != nil {
+		if err := result.ServeHTTP(rw, rq); err != nil {
+			return err
+		}
 	}
 
-	if err != nil {
-		return err
-	}
-
-	if next != nil {
-		return next.ServeHTTP(rw, rq)
+	if !tracked.called {
+		return tracked.ServeHTTP(rw, rq)
 	}
 
 	return nil
 }
 
+func noopHandler(http.ResponseWriter, *http.Request) error {
+	return nil
+}
+
+// BuildMiddlewareChain builds the whole chain once so serving a request does
+// not allocate a closure per middleware.
 func BuildMiddlewareChain(logger *zap.Logger, chain []*WasmHandler) Handler {
-	if len(chain) > 0 {
-		nextMw := chain[0]
+	var next Handler = HandlerFunc(noopHandler)
 
-		return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
-			err := nextMw.ServeHTTP(rw, req, BuildMiddlewareChain(logger, chain[1:]))
+	for _, mw := range slices.Backward(chain) {
+		downstream := next
 
+		next = HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
+			err := mw.ServeHTTP(rw, req, downstream)
 			if err != nil {
 				logger.Sugar().Errorf("error in WASM middleware: %#v", err)
 			}
@@ -88,7 +111,5 @@ func BuildMiddlewareChain(logger *zap.Logger, chain []*WasmHandler) Handler {
 		})
 	}
 
-	return HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
-		return nil
-	})
+	return next
 }

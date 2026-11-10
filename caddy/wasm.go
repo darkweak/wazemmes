@@ -16,14 +16,14 @@ import (
 )
 
 type wasmModule struct {
-	Builder       string      `json:"builder"`
-	Configuration interface{} `json:"configuration"`
-	Filepath      string      `json:"filepath"`
+	Builder       string `json:"builder"`
+	Configuration any    `json:"configuration"`
+	Filepath      string `json:"filepath"`
 }
 
 type CaddyWasm struct {
-	Items            []wasmModule           `json:"items"`
-	Pool             map[string]interface{} `json:"pool"`
+	Items            []wasmModule   `json:"items"`
+	Pool             map[string]any `json:"pool"`
 	middlewaresChain []*wazemmes.WasmHandler
 	logger           *zap.Logger
 	cachedChain      wazemmes.Handler
@@ -31,8 +31,8 @@ type CaddyWasm struct {
 
 const moduleName = "wasm"
 
-func parseCaddyfileRecursively(h *caddyfile.Dispenser) interface{} {
-	input := make(map[string]interface{})
+func parseCaddyfileRecursively(h *caddyfile.Dispenser) any {
+	input := make(map[string]any)
 	for nesting := h.Nesting(); h.NextBlock(nesting); {
 		val := h.Val()
 		if val == "}" || val == "{" {
@@ -60,16 +60,17 @@ func convertSnakeToPascalCase(key string) string {
 		return strings.ToUpper(key)
 	}
 
-	pascalKey := ""
-	for _, val := range strings.Split(key, "_") {
-		pascalKey += strings.ToUpper(val[0:1]) + strings.ToLower(val[1:])
+	var pascalKey strings.Builder
+	for val := range strings.SplitSeq(key, "_") {
+		pascalKey.WriteString(strings.ToUpper(val[0:1]))
+		pascalKey.WriteString(strings.ToLower(val[1:]))
 	}
 
-	return pascalKey
+	return pascalKey.String()
 }
 
-func parsePool(h httpcaddyfile.Helper) (map[string]interface{}, error) {
-	pool := map[string]interface{}{}
+func parsePool(h httpcaddyfile.Helper) (map[string]any, error) {
+	pool := map[string]any{}
 	for nesting := h.Nesting(); h.NextBlock(nesting); {
 		directive := convertSnakeToPascalCase(h.Val())
 		switch directive {
@@ -80,7 +81,17 @@ func parsePool(h httpcaddyfile.Helper) (map[string]interface{}, error) {
 				pool[directive], _ = strconv.ParseBool(args[0])
 			}
 		case "MaxTotal", "MaxIdle", "MinIdle", "NumTestsPerEvictionRun":
-			pool[directive] = true
+			args := h.RemainingArgs()
+			if len(args) == 0 {
+				return nil, h.Errf("%s expects an integer value", directive)
+			}
+
+			value, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, h.Errf("invalid %s value %q: %v", directive, args[0], err)
+			}
+
+			pool[directive] = value
 		case "MinEvictableIdleTime", "SoftMinEvictableIdleTime", "TimeBetweenEvictionRuns":
 			args := h.RemainingArgs()
 			pool[directive], _ = time.ParseDuration(args[0])
@@ -95,7 +106,7 @@ func parsePool(h httpcaddyfile.Helper) (map[string]interface{}, error) {
 func parseCaddyfileHandlerDirective(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
 	wasmConfig := CaddyWasm{
 		Items: make([]wasmModule, 0),
-		Pool:  make(map[string]interface{}),
+		Pool:  make(map[string]any),
 	}
 
 	for h.Next() {
@@ -180,6 +191,8 @@ func (c CaddyWasm) ServeHTTP(rw http.ResponseWriter, r *http.Request, next caddy
 
 		return nil
 	}
+
+	writer.StartSegment()
 
 	err = next.ServeHTTP(writer, r)
 	if err != nil {

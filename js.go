@@ -30,6 +30,51 @@ type response struct {
 	Status  int         `json:"status"`
 }
 
+// UnmarshalJSON accepts the header shapes guests naturally produce: PHP
+// encodes an empty array as [] instead of {}, and header values may be a
+// single string instead of a list.
+func (r *response) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Headers json.RawMessage `json:"headers"`
+		Body    string          `json:"body"`
+		Status  int             `json:"status"`
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	r.Body, r.Status, r.Headers = raw.Body, raw.Status, nil
+
+	trimmed := bytes.TrimSpace(raw.Headers)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) || bytes.Equal(trimmed, []byte("[]")) {
+		return nil
+	}
+
+	var headers map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &headers); err != nil {
+		return fmt.Errorf("invalid response headers: %w", err)
+	}
+
+	r.Headers = make(http.Header, len(headers))
+
+	for key, value := range headers {
+		var values []string
+		if err := json.Unmarshal(value, &values); err != nil {
+			var single string
+			if err := json.Unmarshal(value, &single); err != nil {
+				return fmt.Errorf("invalid value for response header %q: %w", key, err)
+			}
+
+			values = []string{single}
+		}
+
+		r.Headers[key] = values
+	}
+
+	return nil
+}
+
 type baseHandler struct {
 	Request  request  `json:"request"`
 	Response response `json:"response"`
@@ -42,7 +87,7 @@ type Input struct {
 }
 type Output = baseHandler
 
-func NewWasmHandlerJS(modulepath string, _ any, poolConfiguration map[string]interface{},
+func NewWasmHandlerJS(modulepath string, _ any, poolConfiguration map[string]any,
 	logger *zap.Logger) (*WasmHandler, error) {
 	ctx := context.Background()
 
@@ -138,9 +183,18 @@ func writeResponse(rw http.ResponseWriter, response *baseHandler) error {
 		return errors.New(response.Error)
 	}
 
+	status := response.Response.Status
+	if status != 0 && (status < 100 || status > 999) {
+		return fmt.Errorf("invalid status code returned by the module: %d", status)
+	}
+
 	headers := rw.Header()
 	for key, values := range response.Response.Headers {
 		headers[http.CanonicalHeaderKey(key)] = values
+	}
+
+	if status != 0 {
+		rw.WriteHeader(status)
 	}
 
 	_, _ = io.WriteString(rw, response.Response.Body)
@@ -194,7 +248,9 @@ func (h *JSWASMHandler) ServeHTTP(rw http.ResponseWriter, httpReq *http.Request)
 	}
 
 	var response baseHandler
-	_ = json.NewDecoder(stdout).Decode(&response)
+	if err := json.NewDecoder(stdout).Decode(&response); err != nil {
+		return fmt.Errorf("failed to decode the WASM module response: %w", err)
+	}
 
 	return writeResponse(rw, &response)
 }

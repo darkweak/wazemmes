@@ -65,10 +65,19 @@ func main() {
 
 	custom := customHandler{
 		handler: func(res http.ResponseWriter, req *http.Request) {
-			_ = buildMiddlewareChain(logger, middlewareChain, func(writer http.ResponseWriter,
+			writer := wazemmes.BuildWriter(res, req)
+
+			err := buildMiddlewareChain(logger, middlewareChain, func(writer http.ResponseWriter,
 				request *http.Request) {
 				fmt.Println("do nothing")
-			}).ServeHTTP(wazemmes.BuildWriter(res, req), req)
+			}).ServeHTTP(writer, req)
+			if err != nil {
+				logger.Sugar().Warnf("Error in WASM middleware: %#v", err)
+			}
+
+			// The writer buffers the body so each middleware can override it;
+			// nothing reaches the client until it is flushed.
+			writer.Flush()
 		},
 	}
 

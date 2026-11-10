@@ -23,7 +23,7 @@ func newRuntime(ctx context.Context) wazero.Runtime {
 // isExitSuccess reports whether err only signals that the module exited with
 // a zero status code, which is the normal way for a WASI command to finish.
 func isExitSuccess(err error) bool {
-	var exitErr *sys.ExitError
+	exitErr, ok := errors.AsType[*sys.ExitError](err)
 
-	return errors.As(err, &exitErr) && exitErr.ExitCode() == 0
+	return ok && exitErr.ExitCode() == 0
 }

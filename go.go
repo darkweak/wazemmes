@@ -58,7 +58,7 @@ func wazemmesToHTTPHandler(handler Handler) http.Handler {
 	})
 }
 
-func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
+func NewWasmHandlerGo(modulepath string, moduleConfig any, poolConfiguration map[string]any, logger *zap.Logger) (*WasmHandler, error) {
 	ctx := context.Background()
 
 	wa0Rt := host.NewRuntime(wazero.NewRuntimeWithConfig(ctx, newRuntimeConfig().WithCloseOnContextDone(true)))

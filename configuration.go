@@ -26,7 +26,7 @@ type limiter struct {
 	blocking bool
 }
 
-func newLimiter(poolConfiguration map[string]interface{}) *limiter {
+func newLimiter(poolConfiguration map[string]any) *limiter {
 	if poolConfiguration == nil {
 		return nil
 	}

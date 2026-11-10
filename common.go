@@ -8,8 +8,8 @@ import (
 
 type customHandler struct {
 	next           http.Handler
-	handleRequest  func(...interface{}) (interface{}, error)
-	handleResponse func(...interface{}) (interface{}, error)
+	handleRequest  func(...any) (any, error)
+	handleResponse func(...any) (any, error)
 }
 
 func (c *customHandler) NewHandler(ctx context.Context, next http.Handler) http.Handler {

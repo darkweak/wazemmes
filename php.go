@@ -13,6 +13,7 @@ import (
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	"github.com/tetratelabs/wazero/sys"
 	"go.uber.org/zap"
 )
 
@@ -23,11 +24,9 @@ type phpWASMHandler struct {
 	config         wazero.ModuleConfig
 }
 
-func (h *phpWASMHandler) getScriptPath(urlPath string) string {
-	if urlPath == "/" || urlPath == "" {
-		return "index.php"
-	}
-
+// getScriptPath returns the script to execute, relative to the module FS
+// root. Every request is served by the configured entrypoint.
+func (h *phpWASMHandler) getScriptPath(string) string {
 	return h.documentRoot
 }
 
@@ -101,6 +100,13 @@ func (h *phpWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) erro
 	}
 
 	if err != nil && !isExitSuccess(err) {
+		// wazero renders exit code 0xffffffff (php-cgi's exit(-1)) as
+		// "module closed with context canceled", which is misleading.
+		if exitErr, ok := errors.AsType[*sys.ExitError](err); ok {
+			return fmt.Errorf("failed to run the PHP module: php-cgi exited with status %d: %s",
+				int32(exitErr.ExitCode()), bytes.TrimSpace(outputBuffer.Bytes()))
+		}
+
 		return fmt.Errorf("failed to run the PHP module: %w", err)
 	}
 
@@ -110,7 +116,9 @@ func (h *phpWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) erro
 	}
 
 	var response baseHandler
-	_ = json.NewDecoder(bytes.NewReader(payload)).Decode(&response)
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return fmt.Errorf("failed to decode the PHP module response: %w", err)
+	}
 
 	return writeResponse(rw, &response)
 }
@@ -118,7 +126,7 @@ func (h *phpWASMHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) erro
 //go:embed php-cgi.wasm
 var phpWasm []byte
 
-func NewWasmHandlerPHP(modulepath string, _ any, poolConfiguration map[string]interface{},
+func NewWasmHandlerPHP(modulepath string, _ any, poolConfiguration map[string]any,
 	logger *zap.Logger) (*WasmHandler, error) {
 	ctx := context.Background()
 

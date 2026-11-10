@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"go.uber.org/zap"
 )
@@ -25,7 +26,7 @@ type WasmHandler struct {
 	logger        *zap.Logger
 }
 
-func NewWasmHandlerInstance(handler func(ctx context.Context, next Handler) Handler, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
+func NewWasmHandlerInstance(handler func(ctx context.Context, next Handler) Handler, poolConfiguration map[string]any, logger *zap.Logger) (*WasmHandler, error) {
 	return &WasmHandler{
 		handler: handler,
 		limiter: newLimiter(poolConfiguration),
@@ -33,7 +34,7 @@ func NewWasmHandlerInstance(handler func(ctx context.Context, next Handler) Hand
 	}, nil
 }
 
-func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfiguration map[string]interface{}, logger *zap.Logger) (*WasmHandler, error) {
+func NewWasmHandler(modulepath, builder string, moduleConfig any, poolConfiguration map[string]any, logger *zap.Logger) (*WasmHandler, error) {
 	switch builder {
 	case "js", "javascript", "asc", "assemblyscript":
 		return NewWasmHandlerJS(modulepath, moduleConfig, poolConfiguration, logger)
@@ -97,8 +98,8 @@ func noopHandler(http.ResponseWriter, *http.Request) error {
 func BuildMiddlewareChain(logger *zap.Logger, chain []*WasmHandler) Handler {
 	var next Handler = HandlerFunc(noopHandler)
 
-	for i := len(chain) - 1; i >= 0; i-- {
-		mw, downstream := chain[i], next
+	for _, mw := range slices.Backward(chain) {
+		downstream := next
 
 		next = HandlerFunc(func(rw http.ResponseWriter, req *http.Request) error {
 			err := mw.ServeHTTP(rw, req, downstream)

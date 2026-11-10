@@ -12,7 +12,11 @@ import (
 	"github.com/http-wasm/http-wasm-guest-tinygo/handler/api"
 )
 
-func main() {
+// main is not run when the plugin is built as a WASI reactor
+// (-buildmode=c-shared), so the handler is registered in init.
+func main() {}
+
+func init() {
 	var config Config
 	err := json.Unmarshal(handler.Host.GetConfig(), &config)
 	if err != nil {

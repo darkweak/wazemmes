@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -33,13 +34,12 @@ func benchmarkChain(b *testing.B, parallel bool) {
 	})
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	if !parallel {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		rw := httptest.NewRecorder()
 
-		for range b.N {
+		for b.Loop() {
 			_ = chain.ServeHTTP(rw, req)
 		}
 
@@ -98,18 +98,15 @@ func TestConcurrentRequestsDoNotStall(t *testing.T) {
 	h := newNoopWasmHandler(t)
 	chain := BuildMiddlewareChain(zap.NewNop(), []*WasmHandler{h})
 
-	done := make(chan struct{})
+	var wg sync.WaitGroup
 
 	for range 64 {
-		go func() {
+		wg.Go(func() {
 			for range 100 {
 				_ = chain.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 			}
-			done <- struct{}{}
-		}()
+		})
 	}
 
-	for range 64 {
-		<-done
-	}
+	wg.Wait()
 }
